@@ -25,6 +25,13 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	defer cfg.wg.Done()
 	defer func() { <-cfg.concurrencyControl }()
 
+	cfg.mu.Lock()
+	if len(cfg.pages) >= cfg.maxPages {
+		cfg.mu.Unlock()
+		return
+	}
+	cfg.mu.Unlock()
+
 	if !strings.Contains(rawCurrentURL, cfg.baseURL.String()) {
 		return
 	}
