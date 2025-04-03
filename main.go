@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -18,6 +19,12 @@ func main() {
 	}
 
 	if len(args)-1 == 1 {
-		fmt.Printf("starting crawl of: %s", args[1])
+		fmt.Printf("starting crawl of: %s\n", args[1])
 	}
+
+	page, err := getHTML(args[1])
+	if err != nil {
+		log.Fatalf("Error getting HTML: %v", err)
+	}
+	fmt.Printf("%v", page)
 }
