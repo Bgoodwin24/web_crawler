@@ -9,28 +9,25 @@ import (
 func (cfg *config) addPageVisit(normalizedURL string) (isFirst bool) {
 	cfg.mu.Lock()
 	defer cfg.mu.Unlock()
-	count, exists := cfg.pages[normalizedURL]
+	_, exists := cfg.pages[normalizedURL]
 	if exists {
-		cfg.pages[normalizedURL] = count + 1
 		return false
 	}
 
-	cfg.pages[normalizedURL] = 1
+	cfg.pages[normalizedURL] = 0
 	return true
 }
 
-func (cfg *config) crawlPage(rawCurrentURL string) {
-	cfg.wg.Add(1)
-	cfg.concurrencyControl <- struct{}{}
-	defer cfg.wg.Done()
-	defer func() { <-cfg.concurrencyControl }()
-
+func (cfg *config) incrementLinkCount(normalizedURL string) {
 	cfg.mu.Lock()
-	if len(cfg.pages) >= cfg.maxPages {
-		cfg.mu.Unlock()
-		return
-	}
-	cfg.mu.Unlock()
+	defer cfg.mu.Unlock()
+	cfg.pages[normalizedURL]++
+}
+
+func (cfg *config) crawlPage(rawCurrentURL string) {
+	defer cfg.wg.Done()
+	cfg.concurrencyControl <- struct{}{}
+	defer func() { <-cfg.concurrencyControl }()
 
 	if !strings.Contains(rawCurrentURL, cfg.baseURL.String()) {
 		return
@@ -60,6 +57,22 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	}
 
 	for _, link := range links {
-		go cfg.crawlPage(link)
+		if strings.Contains(link, cfg.baseURL.String()) {
+			normalizedLink, err := normalizeURL(link)
+			if err != nil {
+				continue
+			}
+
+			cfg.incrementLinkCount(normalizedLink)
+
+			cfg.mu.Lock()
+			shouldCrawl := len(cfg.pages) < cfg.maxPages
+			cfg.mu.Unlock()
+
+			if shouldCrawl {
+				cfg.wg.Add(1)
+				go cfg.crawlPage(link)
+			}
+		}
 	}
 }

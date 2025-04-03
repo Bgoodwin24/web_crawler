@@ -59,12 +59,11 @@ func main() {
 		maxPages:           maxPagesInt,
 	}
 
-	cfg.crawlPage(baseURL)
+	cfg.wg.Add(1)
+	go cfg.crawlPage(baseURL)
 
 	cfg.wg.Wait()
 
 	fmt.Println("Results:")
-	for url, count := range cfg.pages {
-		fmt.Printf("Found %s %d times\n", url, count)
-	}
+	printReport(cfg.pages, cfg.baseURL.String())
 }
